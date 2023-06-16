@@ -1,0 +1,11 @@
+name: PrivateServer
+version: 0.2.0
+main: me.pixelgames.pixelcrack3r.ps.main.PrivateServer
+author: PixelCrack3r
+commands:
+  privateserver:
+    description: Manage the private servers you own.
+    usage: /<command> help
+depends:
+- CloudNet-Bridge
+- CloudNet-CloudPerms
