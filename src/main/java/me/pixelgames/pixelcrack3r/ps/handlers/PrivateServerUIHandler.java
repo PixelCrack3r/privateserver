@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -19,7 +20,6 @@ import org.bukkit.inventory.ItemStack;
 
 import com.google.gson.JsonObject;
 
-import de.dytanic.cloudnet.ext.bridge.BridgeServiceProperty;
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
 import me.pixelgames.pixelcrack3r.ps.objects.PrivateServerService;
 import me.pixelgames.pixelcrack3r.ps.utils.FormatHelper;
@@ -40,7 +40,7 @@ public class PrivateServerUIHandler {
 		
 		this.villager = this.location.getWorld().spawnEntity(this.location, EntityType.VILLAGER);
 		
-		AdvancedEntityModifier.modify(this.villager, PrivateServer.getInstance())
+		AdvancedEntityModifier.modify(this.villager, PrivateServer.getInstance().getPlugin())
 			.setCanDespawn(false)
 			.setCanPickUpLoot(false)
 			.setDisplayName(PrivateServer.getInstance().getPSConfig().getString("villager.name"))
@@ -71,7 +71,7 @@ public class PrivateServerUIHandler {
 		
 		List<String> lore = new ArrayList<>();
 		if(server != null && server.isRunning()) {
-			lore = Arrays.asList("§7- §6Mode§7: " + (!server.getServerConfiguration().getTemplate().equalsIgnoreCase("none") ? ChatColor.stripColor(PrivateServer.getInstance().getTemplateHandler().getTemplateName(server.getServerConfiguration().getTemplate())) : "Survival"), "§7- §6Players§7: " + server.getServiceInfo().getProperty(BridgeServiceProperty.ONLINE_COUNT).get());
+			lore = Arrays.asList("§7- §6Mode§7: " + (!server.getServerConfiguration().getTemplate().equalsIgnoreCase("none") ? ChatColor.stripColor(PrivateServer.getInstance().getTemplateHandler().getTemplateName(server.getServerConfiguration().getTemplate())) : "Survival"), "§7- §6Players§7: " + server.getServiceInfo().readProperty(BridgeServiceProperties.ONLINE_COUNT));
 		}
 		
 		Inventory inv = Bukkit.createInventory(null, 9*6, PrivateServer.getInstance().getPSConfig().getString("inventory.cp.name"));
@@ -227,7 +227,7 @@ public class PrivateServerUIHandler {
 
 				List<String> lore = new ArrayList<>();
 				if (server.isRunning()) {
-					lore = Arrays.asList("§7- §6Mode§7: " + (!server.getServerConfiguration().getTemplate().equalsIgnoreCase("none") ? ChatColor.stripColor(PrivateServer.getInstance().getTemplateHandler().getTemplateName(server.getServerConfiguration().getTemplate())) : "Survival"), "§7- §6Players§7: " + server.getServiceInfo().getProperty(BridgeServiceProperty.ONLINE_COUNT).get());
+					lore = Arrays.asList("§7- §6Mode§7: " + (!server.getServerConfiguration().getTemplate().equalsIgnoreCase("none") ? ChatColor.stripColor(PrivateServer.getInstance().getTemplateHandler().getTemplateName(server.getServerConfiguration().getTemplate())) : "Survival"), "§7- §6Players§7: " + server.getServiceInfo().readProperty(BridgeServiceProperties.ONLINE_COUNT));
 				}
 
 				inventory.setItem(j, ItemGenerator.modify().setItemStack(new ItemStack(Material.SKULL_ITEM, 1, (byte) 3)).setOwner(server.getOwner()).setDisplayName(!server.isConnected() ? "§cOffline" : "§e" + server.getName()).setLore(lore).build());

@@ -6,6 +6,24 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
+import dev.derklaro.aerogel.Inject;
+import dev.derklaro.aerogel.Singleton;
+import eu.cloudnetservice.common.document.gson.JsonDocument;
+import eu.cloudnetservice.driver.channel.ChannelMessage;
+import eu.cloudnetservice.driver.channel.ChannelMessageTarget;
+import eu.cloudnetservice.driver.event.EventManager;
+import eu.cloudnetservice.driver.network.buffer.DataBuf;
+import eu.cloudnetservice.driver.provider.CloudServiceFactory;
+import eu.cloudnetservice.driver.provider.CloudServiceProvider;
+import eu.cloudnetservice.driver.provider.ServiceTaskProvider;
+import eu.cloudnetservice.driver.service.ServiceInfoSnapshot;
+import eu.cloudnetservice.ext.platforminject.api.PlatformEntrypoint;
+import eu.cloudnetservice.ext.platforminject.api.stereotype.Command;
+import eu.cloudnetservice.ext.platforminject.api.stereotype.Dependency;
+import eu.cloudnetservice.ext.platforminject.api.stereotype.PlatformPlugin;
 import me.pixelgames.pixelcrack3r.ps.cloudlisteners.ChannelMessageReceiveListener;
 import me.pixelgames.pixelcrack3r.ps.cloudlisteners.ServiceConnectionListener;
 import me.pixelgames.pixelcrack3r.ps.commands.CommandPrivateServer;
@@ -18,16 +36,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import de.dytanic.cloudnet.common.document.gson.JsonDocument;
-import de.dytanic.cloudnet.driver.CloudNetDriver;
-import de.dytanic.cloudnet.driver.channel.ChannelMessage;
-import de.dytanic.cloudnet.driver.channel.ChannelMessageTarget.Type;
-import de.dytanic.cloudnet.driver.service.ServiceInfoSnapshot;
 import gq.pixelgames.pixelcrack3r.database.MySQL;
 import me.pixelgames.pixelcrack3r.ps.handlers.PluginHandler;
 import me.pixelgames.pixelcrack3r.ps.handlers.PrivateServerHandler;
@@ -35,11 +44,43 @@ import me.pixelgames.pixelcrack3r.ps.handlers.PrivateServerUIHandler;
 import me.pixelgames.pixelcrack3r.ps.handlers.TemplateHandler;
 import me.pixelgames.pixelcrack3r.ps.handlers.TicketSystem;
 import net.md_5.bungee.api.ChatColor;
+import org.bukkit.plugin.PluginManager;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitScheduler;
 
-public class PrivateServer extends JavaPlugin {
+@Singleton
+@PlatformPlugin(
+	api = "1.13",
+	platform = "bukkit",
+	pluginFileNames = "plugin.yml",
+	name = "PrivateServer",
+	version = "0.3.1+4",
+	authors = "PixelCrack3r",
+	description = "This plugin brings private servers for your players on CloudNet v4!",
+	dependencies = {
+			@Dependency(name = "CloudNet-Bridge")
+	},
+	commands = {
+			@Command(
+					name = "privateserver",
+					description = "A PixelGames provided command",
+					usage = "/<command>"
+			)
+	}
+)
+public class PrivateServer implements PlatformEntrypoint {
 
-	private static PrivateServer plugin;
-	
+	private static PrivateServer instance;
+
+	private final JavaPlugin plugin;
+	private final EventManager eventManager;
+	private final PluginManager pluginManager;
+	private final BukkitScheduler bukkitScheduler;
+
+	private final CloudServiceProvider cloudServiceProvider;
+	private final ServiceTaskProvider serviceTaskProvider;
+	private final CloudServiceFactory cloudServiceFactory;
+
 	private PSConfiguration config;
 	
 	private PrivateServerUIHandler ui;
@@ -52,11 +93,21 @@ public class PrivateServer extends JavaPlugin {
 	private MySQL mySQLProvider;
 	
 	private Map<String, Map<String, String>> playerConfiguration;
-	
+
+	@Inject
+	public PrivateServer(JavaPlugin plugin, BukkitScheduler bukkitScheduler, EventManager eventManager, PluginManager pluginManager, CloudServiceProvider cloudServiceProvider, ServiceTaskProvider serviceTaskProvider, CloudServiceFactory cloudServiceFactory) {
+		instance = this;
+		this.plugin = plugin;
+		this.bukkitScheduler = bukkitScheduler;
+		this.eventManager = eventManager;
+		this.pluginManager = pluginManager;
+		this.cloudServiceProvider = cloudServiceProvider;
+		this.serviceTaskProvider = serviceTaskProvider;
+		this.cloudServiceFactory = cloudServiceFactory;
+	}
+
 	@Override
-	public void onEnable() {
-		plugin = this;
-		
+	public void onLoad() {
 		Bukkit.getConsoleSender().sendMessage(this.getPrefix() + "loading file and database configurations...");
 		this.loadConfig();
 		this.initializeMySQL();
@@ -64,17 +115,17 @@ public class PrivateServer extends JavaPlugin {
 		Bukkit.getConsoleSender().sendMessage(this.getPrefix() + "loading instances...");
 		this.setupUi();
 		this.templateHandler = new TemplateHandler();
-		this.serverHandler = new PrivateServerHandler();
+		this.serverHandler = new PrivateServerHandler(this.cloudServiceProvider, this.serviceTaskProvider, this.cloudServiceFactory);
 		this.pluginHandler = new PluginHandler();
 		this.ticketSystem = new TicketSystem();
 		
 		Bukkit.getConsoleSender().sendMessage(this.getPrefix() + "initialize cloud...");
 		this.getPrivateServerHandler().initialize();
-		CloudNetDriver.getInstance().getEventManager().registerListener(new ServiceConnectionListener());
-		CloudNetDriver.getInstance().getEventManager().registerListener(new ChannelMessageReceiveListener());
+		this.eventManager.registerListener(new ServiceConnectionListener());
+		this.eventManager.registerListener(new ChannelMessageReceiveListener());
 		
 		Bukkit.getConsoleSender().sendMessage(this.getPrefix() + "register channels...");
-		Bukkit.getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+		Bukkit.getMessenger().registerOutgoingPluginChannel(this.plugin, "BungeeCord");
 		
 		Bukkit.getConsoleSender().sendMessage(this.getPrefix() + "register commands...");
 		this.registerCommands();
@@ -88,18 +139,18 @@ public class PrivateServer extends JavaPlugin {
 	
 	@Override
 	public void onDisable() {
-		CloudNetDriver.getInstance().getEventManager().unregisterListener(this.getClassLoader());
+		this.eventManager.unregisterListener(this.getClass().getClassLoader());
 	}
 	
 	private void registerCommands() {
-		this.getCommand("privateserver").setExecutor(new CommandPrivateServer());
+		this.getPlugin().getCommand("privateserver").setExecutor(new CommandPrivateServer());
 	}
 	
 	private void registerListeners() {
-		Bukkit.getPluginManager().registerEvents(new OnPlayerJoinListener(), this);
-		Bukkit.getPluginManager().registerEvents(new OnPlayerQuitListener(), this);
-		Bukkit.getPluginManager().registerEvents(new OnPlayerInteractEntityListener(), this);
-		Bukkit.getPluginManager().registerEvents(new OnPlayerInventoryClickListener(), this);
+		Bukkit.getPluginManager().registerEvents(new OnPlayerJoinListener(), this.plugin);
+		Bukkit.getPluginManager().registerEvents(new OnPlayerQuitListener(), this.plugin);
+		Bukkit.getPluginManager().registerEvents(new OnPlayerInteractEntityListener(), this.plugin);
+		Bukkit.getPluginManager().registerEvents(new OnPlayerInventoryClickListener(), this.plugin);
 	}
 	
 	private void loadConfig() {
@@ -178,14 +229,19 @@ public class PrivateServer extends JavaPlugin {
 	
 	public JsonObject requestServiceProperties(ServiceInfoSnapshot target) {
 		JsonObject properties = null;
-		List<ChannelMessage> responses = new ArrayList<>(this.sendQuery(JsonDocument.newDocument().append("request", "startup_properties").append("target", target.getName())));
+		List<ChannelMessage> responses = new ArrayList<>(this.sendQuery(JsonDocument.newDocument().append("request", "startup_properties").append("target", target.name())));
 		ChannelMessage msg = responses.size() > 0 ? responses.get(0) : null;
-		if(msg != null && msg.getJson().contains("properties")) properties = JsonParser.parseString(msg.getJson().getString("properties")).getAsJsonObject();
+		if(msg == null) return null;
+		try {
+			properties = new JsonParser().parse(msg.content().readString()).getAsJsonObject();
+		} catch (JsonSyntaxException e) {
+			this.getPlugin().getLogger().warning("Could not handle service properties of " + target.name());
+		}
 		return properties;
 	}
 	
 	private Collection<ChannelMessage> sendQuery(JsonDocument data) {
-		return ChannelMessage.builder().targetAll(Type.SERVICE).channel("private_server").message("send_query").json(data).build().sendQuery();
+		return ChannelMessage.builder().targetAll(ChannelMessageTarget.Type.SERVICE).channel("private_server").message("send_query").buffer(DataBuf.empty().writeString(data.toString())).build().sendQuery();
 	}
 	
 	public static void connect(Player player, String server) {
@@ -199,7 +255,7 @@ public class PrivateServer extends JavaPlugin {
 			e.printStackTrace();
 		}
 		
-		player.sendPluginMessage(plugin, "BungeeCord", b.toByteArray());
+		player.sendPluginMessage(PrivateServer.getInstance().getPlugin(), "BungeeCord", b.toByteArray());
 	}
 	
 	public PSConfiguration getPSConfig() {
@@ -244,9 +300,13 @@ public class PrivateServer extends JavaPlugin {
 		if(!this.playerConfiguration.containsKey(player.getName())) this.playerConfiguration.put(player.getName(), new HashMap<>());
 		return this.playerConfiguration.get(player.getName());
 	}
-	
+
+	public JavaPlugin getPlugin() { return this.plugin; }
+	public PluginManager getPluginManager() { return this.pluginManager; }
+	public BukkitScheduler getBukkitScheduler() { return this.bukkitScheduler; };
+
 	public static PrivateServer getInstance() {
-		return plugin;
+		return instance;
 	}
 	
 }

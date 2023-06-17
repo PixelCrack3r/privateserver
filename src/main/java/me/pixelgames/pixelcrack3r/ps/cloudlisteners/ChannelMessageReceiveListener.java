@@ -1,27 +1,27 @@
 package me.pixelgames.pixelcrack3r.ps.cloudlisteners;
 
-import de.dytanic.cloudnet.common.document.gson.JsonDocument;
-import de.dytanic.cloudnet.driver.channel.ChannelMessage;
-import de.dytanic.cloudnet.driver.event.EventListener;
-import de.dytanic.cloudnet.driver.event.events.channel.ChannelMessageReceiveEvent;
+import eu.cloudnetservice.common.document.gson.JsonDocument;
+import eu.cloudnetservice.driver.channel.ChannelMessage;
+import eu.cloudnetservice.driver.event.EventListener;
+import eu.cloudnetservice.driver.event.events.channel.ChannelMessageReceiveEvent;
+import eu.cloudnetservice.driver.network.buffer.DataBuf;
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
 import me.pixelgames.pixelcrack3r.ps.objects.PrivateServerService;
-import org.jetbrains.annotations.NotNull;
 
 public class ChannelMessageReceiveListener {
 
 	@EventListener
-	public void onChannelMessageReceive(@NotNull ChannelMessageReceiveEvent e) {
-		if(e.getMessage() == null) return;
-		if(!e.getChannel().equalsIgnoreCase("private_server")) return;
+	public void onChannelMessageReceive(ChannelMessageReceiveEvent e) {
+		if(!e.channel().equalsIgnoreCase("private_server")) return;
 		
-		if(e.getMessage().equalsIgnoreCase("send_query")) {
-			if(e.getData().getString("request").equalsIgnoreCase("startup_properties")) {
-				String target = e.getData().getString("target", e.getSender().getName());
+		if(e.message().equalsIgnoreCase("send_query")) {
+			JsonDocument data = JsonDocument.fromJsonString(e.content().readString());
+			if(data.getString("request").equalsIgnoreCase("startup_properties")) {
+				String target = data.getString("target", e.sender().name());
 				PrivateServerService service = PrivateServer.getInstance().getPrivateServerHandler().getPrivateServer(target);
 				if(service == null) return;
 				service.setWrapperActive(true);
-				e.setQueryResponse(ChannelMessage.buildResponseFor(e.getChannelMessage()).json(JsonDocument.newDocument().append("properties", service.buildStartupProperties().toString())).build());
+				e.queryResponse(ChannelMessage.buildResponseFor(e.channelMessage()).buffer(DataBuf.empty().writeString(JsonDocument.newDocument().append("properties", service.buildStartupProperties().toString()).toString())).build());
 			}
 		}
 	}

@@ -1,62 +1,58 @@
 package me.pixelgames.pixelcrack3r.ps.cloudlisteners;
 
+import eu.cloudnetservice.driver.event.EventListener;
+import eu.cloudnetservice.driver.event.events.service.CloudServiceLifecycleChangeEvent;
+import eu.cloudnetservice.driver.event.events.service.CloudServiceUpdateEvent;
+import eu.cloudnetservice.driver.service.ServiceLifeCycle;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
-import de.dytanic.cloudnet.driver.event.EventListener;
-import de.dytanic.cloudnet.driver.event.events.service.CloudServiceConnectNetworkEvent;
-import de.dytanic.cloudnet.driver.event.events.service.CloudServiceDisconnectNetworkEvent;
-import de.dytanic.cloudnet.driver.event.events.service.CloudServiceInfoUpdateEvent;
-import de.dytanic.cloudnet.driver.service.ServiceLifeCycle;
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
 import me.pixelgames.pixelcrack3r.ps.objects.PrivateServerService;
 
 public class ServiceConnectionListener {
 
 	@EventListener
-	public void onServiceConnect(CloudServiceConnectNetworkEvent e) {
-		if(e.getServiceInfo().getName().startsWith("PS-")) {
-			if(e.getServiceInfo().getLifeCycle() == ServiceLifeCycle.RUNNING) {
-				PrivateServerService server = PrivateServer.getInstance().getPrivateServerHandler().getPrivateServer(e.getServiceInfo().getName());
+	public void onCloudServiceLifecycleChange(CloudServiceLifecycleChangeEvent e) {
+		if(e.serviceInfo().name().startsWith("PS-")) {
+			PrivateServerService server = PrivateServer.getInstance().getPrivateServerHandler().getPrivateServer(e.serviceInfo().name());
+
+			if(e.newLifeCycle() == ServiceLifeCycle.RUNNING) {
 				if(server == null) {
-					server = PrivateServer.getInstance().getPrivateServerHandler().buildExistingService(e.getServiceInfo());
+					server = PrivateServer.getInstance().getPrivateServerHandler().buildExistingService(e.serviceInfo());
 					if(server != null) PrivateServer.getInstance().getPrivateServerHandler().initialize(server);
 				}
 				
 				if(server == null) {
 					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "Stopping unregistered PS service....");
-					e.getServiceInfo().provider().stopAsync();
+					e.serviceInfo().provider().stopAsync();
 					return;
 				}
 				server.setConnected(true);
 				PrivateServer.getInstance().getUi().updateServerList();
+			} else if(e.newLifeCycle() == ServiceLifeCycle.STOPPED || e.newLifeCycle() == ServiceLifeCycle.DELETED) {
+				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "CloudService " + e.serviceInfo().name() + " is disconnected!");
+				if(server == null) return;
+				server.setConnected(false);
+				server.stop();
+				server.forceDelete();
+				PrivateServer.getInstance().getUi().updateServerList();
 			}
 		}
 	}
-	
+
 	@EventListener
-	public void onServiceDisconnect(CloudServiceDisconnectNetworkEvent e) {
-		if(e.getServiceInfo().getName().startsWith("PS-")) {
-			PrivateServerService server = PrivateServer.getInstance().getPrivateServerHandler().getPrivateServer(e.getServiceInfo().getName());
-			if(server == null) return;
-			server.setConnected(false);
-			server.stop();
-			PrivateServer.getInstance().getUi().updateServerList();
-		}
-	}
-	
-	@EventListener
-	public void onServiceInfoUpdate(CloudServiceInfoUpdateEvent e) {
-		if(e.getServiceInfo().getName().startsWith("PS-") && e.getServiceInfo().getLifeCycle() == ServiceLifeCycle.RUNNING) {
-			PrivateServerService server = PrivateServer.getInstance().getPrivateServerHandler().getPrivateServer(e.getServiceInfo().getName());
+	public void onCloudServiceUpdate(CloudServiceUpdateEvent e) {
+		if(e.serviceInfo().name().startsWith("PS-") && e.serviceInfo().lifeCycle() == ServiceLifeCycle.RUNNING) {
+			PrivateServerService server = PrivateServer.getInstance().getPrivateServerHandler().getPrivateServer(e.serviceInfo().name());
 			if(server == null) {
 				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "Stopping unregistered PS service....");
-				e.getServiceInfo().provider().stopAsync();
+				e.serviceInfo().provider().stopAsync();
 				return;
 			}
 			PrivateServer.getInstance().getUi().updateServerList();
 			OfflinePlayer owner = Bukkit.getOfflinePlayer(server.getOwnerId());
-			if(owner != null) {
+			if(owner != null && server.isWrapperActive()) {
 				server.getServerConfiguration().setProperties(server.getProperties());
 				PrivateServer.getInstance().getPrivateServerHandler().updateServerConfiguration(owner, server.getServerConfiguration());
 			}

@@ -2,10 +2,10 @@ package me.pixelgames.pixelcrack3r.ps.handlers;
 
 import java.util.Set;
 
+import com.google.gson.JsonObject;
+import eu.cloudnetservice.common.document.gson.JsonDocument;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
-
-import com.google.gson.JsonObject;
 
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
 

@@ -3,26 +3,22 @@ package me.pixelgames.pixelcrack3r.ps.handlers;
 import java.sql.ResultSet;
 
 import java.util.*;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import eu.cloudnetservice.common.document.gson.JsonDocument;
+import eu.cloudnetservice.driver.provider.CloudServiceFactory;
+import eu.cloudnetservice.driver.provider.CloudServiceProvider;
+import eu.cloudnetservice.driver.provider.ServiceTaskProvider;
+import eu.cloudnetservice.driver.service.*;
+import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
-import de.dytanic.cloudnet.common.document.gson.JsonDocument;
-import de.dytanic.cloudnet.driver.CloudNetDriver;
-import de.dytanic.cloudnet.driver.service.ServiceConfiguration;
-import de.dytanic.cloudnet.driver.service.ServiceInfoSnapshot;
-import de.dytanic.cloudnet.driver.service.ServiceRemoteInclusion;
-import de.dytanic.cloudnet.driver.service.ServiceTask;
-import de.dytanic.cloudnet.driver.service.ServiceTemplate;
-import de.dytanic.cloudnet.ext.bridge.BridgeServiceProperty;
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
 import me.pixelgames.pixelcrack3r.ps.objects.PrivateServerService;
 
@@ -31,21 +27,31 @@ public class PrivateServerHandler {
 	public final static List<PrivateServerService> PRIVATE_SERVERS = new ArrayList<PrivateServerService>();
 	
 	private final static Map<String, ServerConfiguration> LOADED_CONFIGS = new HashMap<String, ServerConfiguration>();
-	
+
+	private final CloudServiceProvider cloudServiceProvider;
+	private final ServiceTaskProvider serviceTaskProvider;
+	private final CloudServiceFactory cloudServiceFactory;
+
+	public PrivateServerHandler(CloudServiceProvider cloudServiceProvider, ServiceTaskProvider serviceTaskProvider, CloudServiceFactory cloudServiceFactory) {
+		this.cloudServiceProvider = cloudServiceProvider;
+		this.serviceTaskProvider = serviceTaskProvider;
+		this.cloudServiceFactory = cloudServiceFactory;
+	}
+
 	public void initialize() {
 		for(ServiceInfoSnapshot snapshot : getRunningPSs()) {
 			if(PrivateServer.getInstance().getPSConfig().getBoolean("server.registerStartedServers") ) {
-				
-				if(!snapshot.getProperty(BridgeServiceProperty.EXTRA).isPresent()) {
+
+				if(!snapshot.propertyAbsent(BridgeServiceProperties.EXTRA)) {
 					snapshot.provider().stopAsync();
-					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.getName() + " was closed because it could not be initialized! You can disable this feature in the config.");
+					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " was closed because it could not be initialized! You can disable this feature in the config.");
 					continue;
 				}
 
 				try {
-					JsonObject properties = JsonParser.parseString(snapshot.getProperty(BridgeServiceProperty.EXTRA).get()).getAsJsonObject();
+					JsonDocument properties = JsonDocument.fromJsonString(snapshot.readProperty(BridgeServiceProperties.EXTRA));
 
-					UUID ownerId = properties.has("privateserver.owner") ? UUID.fromString(properties.get("privateserver.owner").getAsString()) : null;
+					UUID ownerId = properties.contains("privateserver.owner") ? UUID.fromString(properties.getString("privateserver.owner")) : null;
 					OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerId);
 
 					PrivateServerService service = new PrivateServerService(owner, snapshot, this.getServerConfiguration(owner));
@@ -55,9 +61,9 @@ public class PrivateServerHandler {
 					service.start();
 					PRIVATE_SERVERS.add(service);
 					service.sendMessage(JsonDocument.newDocument().append("action", "broadcast").append("message", "§7[§bPrivateServer§7] §9INFO: §7This private server has been registered on a new provider service!"));
-					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.getName() + " has been initialized.");
+					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " has been initialized.");
 				} catch(Exception e) {
-					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.getName() + " was closed because it could not be initialized because the extra property of this server had an invalid format!");
+					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " was closed because it could not be initialized because the extra property of this server had an invalid format!");
 					snapshot.provider().stopAsync();
 				}
 					
@@ -66,7 +72,7 @@ public class PrivateServerHandler {
 			
 			if(PrivateServer.getInstance().getPSConfig().getBoolean("server.stopWhenInitializing")) {
 				snapshot.provider().stopAsync();
-				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.getName() + " was closed because the provider is initialized. You can disable this feature in the config.");
+				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " was closed because the provider is initialized. You can disable this feature in the config.");
 			}
 		}
 	}
@@ -92,8 +98,8 @@ public class PrivateServerHandler {
 	}
 	
 	public JsonObject extractServiceProperties(ServiceInfoSnapshot snapshot) {
-		if(!snapshot.getProperty(BridgeServiceProperty.EXTRA).isPresent()) return null;
-		return JsonParser.parseString(snapshot.getProperty(BridgeServiceProperty.EXTRA).get()).getAsJsonObject();
+		if(snapshot.propertyAbsent(BridgeServiceProperties.EXTRA)) return null;
+		return new JsonParser().parse(snapshot.readProperty(BridgeServiceProperties.EXTRA)).getAsJsonObject();
 	}
 	
 	public boolean isServerRunning(OfflinePlayer player) {
@@ -110,7 +116,7 @@ public class PrivateServerHandler {
 	}
 	
 	public Collection<ServiceInfoSnapshot> getRunningPSs() {
-		return CloudNetDriver.getInstance().getCloudServiceProvider().getCloudServicesByGroup("PS");
+		return this.cloudServiceProvider.servicesByGroup("PS");
 	}
 	
 	public ServiceInfoSnapshot prepareService(Player player) {
@@ -119,62 +125,55 @@ public class PrivateServerHandler {
 	
 	public ServiceInfoSnapshot prepareService(Player player, ServerConfiguration config) {
 		if(isServerRunning(player)) return null;
-		if(CloudNetDriver.getInstance().getServiceTaskProvider().isServiceTaskPresent("PS")) {
-			boolean isTemplate = false;
-			if(PrivateServer.getInstance().getTemplateHandler().templateExists(config.getTemplate())) {
-				config = PrivateServer.getInstance().getTemplateHandler().getServerConfiguration(config.getTemplate());				
-				isTemplate = true;
-			}
-			
-			ServiceTask task = CloudNetDriver.getInstance().getServiceTaskProvider().getServiceTask("PS");
-			if(task == null) throw new RuntimeException("The task PS is not configured yet!");
-			ServiceTask psTask = new ServiceTask(task.getIncludes(), task.getTemplates(), task.getDeployments(), task.getName() + "-" + player.getName(), task.getRuntime(), task.isMaintenance(), task.isAutoDeleteOnStop(), task.isStaticServices(), task.getAssociatedNodes(), task.getGroups(), task.getDeletedFilesAfterStop(), task.getProcessConfiguration(), task.getStartPort(), 0, task.getJavaCommand());
-			
-			if(isTemplate) {
-				List<ServiceTemplate> templates = new ArrayList<>(task.getTemplates());
-				templates.add(PrivateServer.getInstance().getTemplateHandler().getTemplate(config.getTemplate()));	
-				psTask.setTemplates(templates);
-			}
-			
-			List<ServiceRemoteInclusion> plugins = new ArrayList<ServiceRemoteInclusion>();
-			if(config.getProperties().has("plugins")) {
-				for(Entry<String, JsonElement> plugin : config.getProperties().get("plugins").getAsJsonObject().entrySet()) {
-			
-					if(!plugin.getValue().getAsJsonObject().get("installed").getAsBoolean()) continue;
-					if(!PrivateServer.getInstance().getPSConfig().getBoolean("server.allowRemovedPlugins") && !PrivateServer.getInstance().getPluginHandler().pluginExists(plugin.getKey())) continue;
-					
-					ServiceRemoteInclusion inclusion = new ServiceRemoteInclusion(plugin.getValue().getAsJsonObject().get("url").getAsString(), "plugins/" + plugin.getValue().getAsJsonObject().get("file").getAsString());
-					plugins.add(inclusion);
-					
-				}
-			}
-			
-			if(config.getProperties().has("javaCommand")) psTask.setJavaCommand(config.getProperties().get("javaCommand").getAsString());
-			if(config.getProperties().has("runtime")) psTask.setRuntime(config.getProperties().get("runtime").getAsString());
-			if(config.getProperties().has("maxHeapMemory")) psTask.getProcessConfiguration().setMaxHeapMemorySize(config.getProperties().get("maxHeapMemory").getAsInt());
-			
-			Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "The task " + psTask.getName() + " has been prepared with the following configuration:");
-			Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  Template: " + config.getTemplate());
-			Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  Template Exists: " + PrivateServer.getInstance().getTemplateHandler().templateExists(config.getTemplate()));
-			Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  Static: " + config.isStatic());
-			psTask.getTemplates().forEach(template -> {
-				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  " + template.getName() + ": " + template.getPrefix() + " | " + template.getStorage() + " -> " + template.getTemplatePath());
-			});
-			plugins.forEach(inclusion -> {
-				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  " + inclusion.getDestination() + ": " + inclusion.getUrl());
-			});
-			
-			ServiceConfiguration serviceConfig = ServiceConfiguration.builder()
-					.task(psTask)
-					.inclusions(plugins)
-					.addDeletedFilesAfterStop("plugins/")
-					.build();
+		ServiceTask task = this.serviceTaskProvider.serviceTask("PS");
+		if(task == null) throw new RuntimeException("The task PS is not configured yet!");
 
-			serviceConfig.setStaticService(config.isStatic());
-
-			return CloudNetDriver.getInstance().getCloudServiceFactory().createCloudService(serviceConfig);
+		boolean isTemplate = false;
+		if(PrivateServer.getInstance().getTemplateHandler().templateExists(config.getTemplate())) {
+			config = PrivateServer.getInstance().getTemplateHandler().getServerConfiguration(config.getTemplate());
+			isTemplate = true;
 		}
-		return null;
+
+		if(isTemplate) {
+			task.templates().add(PrivateServer.getInstance().getTemplateHandler().getTemplate(config.getTemplate()));
+		}
+
+		List<ServiceRemoteInclusion> plugins = new ArrayList<ServiceRemoteInclusion>();
+		if(config.getProperties().has("plugins")) {
+			for(Map.Entry<String, JsonElement> plugin : config.getProperties().get("plugins").getAsJsonObject().entrySet()) {
+
+				if(!plugin.getValue().getAsJsonObject().get("installed").getAsBoolean()) continue;
+				if(!PrivateServer.getInstance().getPSConfig().getBoolean("server.allowRemovedPlugins") && !PrivateServer.getInstance().getPluginHandler().pluginExists(plugin.getKey())) continue;
+
+				plugins.add(ServiceRemoteInclusion.builder()
+						.url(plugin.getValue().getAsJsonObject().get("url").getAsString())
+						.destination("plugins/" + plugin.getValue().getAsJsonObject().get("file").getAsString())
+						.build());
+
+			}
+		}
+
+		ServiceConfiguration.Builder serviceBuilder = ServiceConfiguration.builder(task)
+				.taskName("PS-" + player.getName());
+
+		if(config.getProperties().has("javaCommand")) serviceBuilder.javaCommand(config.getProperties().get("javaCommand").getAsString());
+		if(config.getProperties().has("runtime")) serviceBuilder.runtime(config.getProperties().get("runtime").getAsString());
+		if(config.getProperties().has("maxHeapMemory")) serviceBuilder.maxHeapMemory(config.getProperties().get("maxHeapMemory").getAsInt());
+
+		ServiceConfiguration serviceConfiguration = serviceBuilder.build();
+
+		Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "The task " + "PS-" + player.getName() + " has been prepared with the following configuration:");
+		Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  Template: " + config.getTemplate());
+		Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  Template Exists: " + PrivateServer.getInstance().getTemplateHandler().templateExists(config.getTemplate()));
+		Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  Static: " + config.isStatic());
+		serviceConfiguration.templates().forEach(template -> {
+			Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  " + template.name() + ": " + template.prefix() + " | " + template.storageName() + " -> " + template.fullName());
+		});
+		plugins.forEach(inclusion -> {
+			Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  " + inclusion.destination() + ": " + inclusion.url());
+		});
+
+		return serviceConfiguration.createNewService().serviceInfo();
 	}
 	
 	public boolean start(Player player) {
@@ -209,7 +208,7 @@ public class PrivateServerHandler {
 				boolean isStatic = result.getBoolean("static");
 				
 				if(owner.equalsIgnoreCase(player.getUniqueId().toString())) {
-					LOADED_CONFIGS.put(player.getName(), new ServerConfiguration(template, isStatic, JsonParser.parseString(properties).getAsJsonObject()));
+					LOADED_CONFIGS.put(player.getName(), new ServerConfiguration(template, isStatic, new JsonParser().parse(properties).getAsJsonObject()));
 					return LOADED_CONFIGS.get(player.getName());
 				}
 			}

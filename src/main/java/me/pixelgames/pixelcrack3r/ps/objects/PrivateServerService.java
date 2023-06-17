@@ -4,6 +4,13 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import eu.cloudnetservice.common.document.gson.JsonDocument;
+import eu.cloudnetservice.driver.channel.ChannelMessage;
+import eu.cloudnetservice.driver.inject.InjectionLayer;
+import eu.cloudnetservice.driver.network.buffer.DataBuf;
+import eu.cloudnetservice.driver.provider.CloudServiceProvider;
+import eu.cloudnetservice.driver.service.ServiceInfoSnapshot;
+import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
 import me.pixelgames.pixelcrack3r.ps.handlers.PrivateServerHandler;
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
@@ -14,11 +21,6 @@ import org.bukkit.entity.Player;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import de.dytanic.cloudnet.common.document.gson.JsonDocument;
-import de.dytanic.cloudnet.driver.CloudNetDriver;
-import de.dytanic.cloudnet.driver.channel.ChannelMessage;
-import de.dytanic.cloudnet.driver.service.ServiceInfoSnapshot;
-import de.dytanic.cloudnet.ext.bridge.BridgeServiceProperty;
 import gq.pixelgames.pixelcrack3r.utils.Title;
 
 public class PrivateServerService {
@@ -50,8 +52,8 @@ public class PrivateServerService {
 		this.owner = owner.getName();
 		this.oid = owner.getUniqueId();
 		this.snapshot = snapshot;
-		this.name = snapshot.getName();
-		this.uuid = snapshot.getServiceId().getUniqueId();
+		this.name = snapshot.name();
+		this.uuid = snapshot.serviceId().uniqueId();
 		this.step = new AtomicInteger(0);
 		this.timeout = new AtomicInteger(0);
 		this.schedulerId = new AtomicInteger();
@@ -60,7 +62,7 @@ public class PrivateServerService {
 	}
 	
 	public ServiceInfoSnapshot getServiceInfo() {
-		return CloudNetDriver.getInstance().getCloudServiceProvider().getCloudService(this.uuid);
+		return InjectionLayer.ext().instance(CloudServiceProvider.class).service(this.uuid);
 	}
 	
 	public ServiceInfoSnapshot getPreServiceInfo() {
@@ -93,7 +95,7 @@ public class PrivateServerService {
 		if(this.started) return;
 		this.started = true;
 		
-		this.schedulerId.set(Bukkit.getScheduler().scheduleSyncRepeatingTask(PrivateServer.getInstance(), () -> {
+		this.schedulerId.set(PrivateServer.getInstance().getBukkitScheduler().scheduleSyncRepeatingTask(PrivateServer.getInstance().getPlugin(), () -> {
 			
 			if(!this.sent) {
 				Player player = Bukkit.getPlayer(this.getOwner());
@@ -113,9 +115,9 @@ public class PrivateServerService {
 						break;
 					}
 					}
-					if(this.step.get() == 15 + (7*this.getPreServiceInfo().getConfiguration().getIncludes().length)) {
+					if(this.step.get() == 15 + (7*this.getPreServiceInfo().configuration().inclusions().size())) {
 						player.sendMessage(PrivateServer.getInstance().getPrefix() + "Starting the service takes longer than usual.");
-					} else if(this.step.get() == 30 + (7*this.getPreServiceInfo().getConfiguration().getIncludes().length)) {
+					} else if(this.step.get() == 30 + (7*this.getPreServiceInfo().configuration().inclusions().size())) {
 						player.sendMessage(PrivateServer.getInstance().getPrefix() + "It seems an error has occurred. Please report this incident to an administrator.");
 						this.stop();
 					}
@@ -141,7 +143,7 @@ public class PrivateServerService {
 					this.sent = true;
 				}
 
-				if(this.getServiceInfo().getProperty(BridgeServiceProperty.ONLINE_COUNT).isPresent() && this.getServiceInfo().getProperty(BridgeServiceProperty.ONLINE_COUNT).get() <= 0) {
+				if(this.getServiceInfo().propertyPresent(BridgeServiceProperties.ONLINE_COUNT) && this.getServiceInfo().readProperty(BridgeServiceProperties.ONLINE_COUNT) <= 0) {
 					int current = this.timeout.addAndGet(1);
 					if(current > PrivateServer.getInstance().getPSConfig().getInt("server.stopAfter"))
 						this.stop();
@@ -151,8 +153,8 @@ public class PrivateServerService {
 		}, 0, 20));
 		
 		if(this.isStarting()) return; // the service is already started
-		
-		this.getPreServiceInfo().provider().startAsync().onComplete(c -> {
+
+		this.getPreServiceInfo().provider().startAsync().whenComplete((c, b) -> {
 			Player player = Bukkit.getPlayer(this.getOwner());
 			if(player != null) {
 				if(this.getServiceInfo() != null) {
@@ -171,20 +173,20 @@ public class PrivateServerService {
 	
 	public boolean isRunning() {
 		ServiceInfoSnapshot info = this.getServiceInfo();
-		return this.isConnected() && info != null && info.getProperty(BridgeServiceProperty.IS_ONLINE).isPresent() && info.getProperty(BridgeServiceProperty.IS_ONLINE).get();
+		return this.isConnected() && info != null && info.propertyPresent(BridgeServiceProperties.IS_ONLINE) && info.readProperty(BridgeServiceProperties.IS_ONLINE);
 	}
-	
+
 	public boolean isStarting() {
 		ServiceInfoSnapshot info = this.getServiceInfo();
-		return this.isConnected() && info != null && info.getProperty(BridgeServiceProperty.IS_STARTING).isPresent() && info.getProperty(BridgeServiceProperty.IS_STARTING).get();
+		return this.isConnected() && info != null;
 	}
 	
 	public void sendMessage(JsonDocument data) {
-		ChannelMessage.builder().channel("private_server").message("send_data").json(data).targetService(this.getServiceInfo().getName()).build().send();
+		ChannelMessage.builder().channel("private_server").message("send_data").buffer(DataBuf.empty().writeString(data.toString())).targetService(this.getServiceInfo().name()).build().send();
 	}
 	
 	public Collection<ChannelMessage> query(JsonDocument data) {
-		return ChannelMessage.builder().channel("private_server").message("send_query").json(data).targetService(this.getServiceInfo().getName()).build().sendQuery();
+		return ChannelMessage.builder().channel("private_server").message("send_query").buffer(DataBuf.empty().writeString(data.toString())).targetService(this.getServiceInfo().name()).build().sendQuery();
 	}
 	
 	public void setConnected(boolean connected) {
@@ -207,9 +209,14 @@ public class PrivateServerService {
 	public void stop() {
 		Bukkit.getScheduler().cancelTask(this.schedulerId.get());
 		if(this.getServiceInfo() != null) {
-			this.getServiceInfo().provider().stopAsync();
+			this.getServiceInfo().provider().stopAsync().whenComplete((c, t) -> {
+				PrivateServerHandler.PRIVATE_SERVERS.remove(this);
+			});
 		}
-		if(!this.isConnected()) PrivateServerHandler.PRIVATE_SERVERS.remove(this);
+	}
+
+	public void forceDelete() {
+		PrivateServerHandler.PRIVATE_SERVERS.remove(this);
 	}
 	
 	public ServerConfiguration getServerConfiguration() {
@@ -217,7 +224,7 @@ public class PrivateServerService {
 	}
 	
 	public JsonObject getProperties() {
-		return JsonParser.parseString(this.getServiceInfo().getProperty(BridgeServiceProperty.EXTRA).orElse("{}")).getAsJsonObject();
+		return new JsonParser().parse(this.getServiceInfo().readPropertyOrDefault(BridgeServiceProperties.EXTRA, "{}")).getAsJsonObject();
 	}
 	
 	public JsonObject buildStartupProperties() {
