@@ -6,9 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import eu.cloudnetservice.common.document.gson.JsonDocument;
 import eu.cloudnetservice.driver.channel.ChannelMessage;
-import eu.cloudnetservice.driver.inject.InjectionLayer;
 import eu.cloudnetservice.driver.network.buffer.DataBuf;
-import eu.cloudnetservice.driver.provider.CloudServiceProvider;
 import eu.cloudnetservice.driver.service.ServiceInfoSnapshot;
 import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
@@ -62,7 +60,7 @@ public class PrivateServerService {
 	}
 	
 	public ServiceInfoSnapshot getServiceInfo() {
-		return InjectionLayer.ext().instance(CloudServiceProvider.class).service(this.uuid);
+		return PrivateServer.getInstance().getCloudServiceProvider().service(this.uuid);
 	}
 	
 	public ServiceInfoSnapshot getPreServiceInfo() {

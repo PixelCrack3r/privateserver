@@ -305,6 +305,10 @@ public class PrivateServer implements PlatformEntrypoint {
 	public PluginManager getPluginManager() { return this.pluginManager; }
 	public BukkitScheduler getBukkitScheduler() { return this.bukkitScheduler; };
 
+	public CloudServiceProvider getCloudServiceProvider() {
+		return this.cloudServiceProvider;
+	}
+
 	public static PrivateServer getInstance() {
 		return instance;
 	}

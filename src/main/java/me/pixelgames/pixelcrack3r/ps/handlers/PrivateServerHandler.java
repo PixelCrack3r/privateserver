@@ -42,9 +42,9 @@ public class PrivateServerHandler {
 		for(ServiceInfoSnapshot snapshot : getRunningPSs()) {
 			if(PrivateServer.getInstance().getPSConfig().getBoolean("server.registerStartedServers") ) {
 
-				if(!snapshot.propertyAbsent(BridgeServiceProperties.EXTRA)) {
+				if(snapshot.propertyAbsent(BridgeServiceProperties.EXTRA)) {
 					snapshot.provider().stopAsync();
-					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " was closed because it could not be initialized! You can disable this feature in the config.");
+					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe service " + snapshot.name() + " is stopped because it could not be initialized! You can disable this feature in the config.");
 					continue;
 				}
 
@@ -61,9 +61,9 @@ public class PrivateServerHandler {
 					service.start();
 					PRIVATE_SERVERS.add(service);
 					service.sendMessage(JsonDocument.newDocument().append("action", "broadcast").append("message", "§7[§bPrivateServer§7] §9INFO: §7This private server has been registered on a new provider service!"));
-					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " has been initialized.");
+					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe service " + snapshot.name() + " has been initialized.");
 				} catch(Exception e) {
-					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " was closed because it could not be initialized because the extra property of this server had an invalid format!");
+					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe service " + snapshot.name() + " is stopped because it could not be initialized because the extra property could not be parsed!");
 					snapshot.provider().stopAsync();
 				}
 					
@@ -72,12 +72,12 @@ public class PrivateServerHandler {
 			
 			if(PrivateServer.getInstance().getPSConfig().getBoolean("server.stopWhenInitializing")) {
 				snapshot.provider().stopAsync();
-				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " was closed because the provider is initialized. You can disable this feature in the config.");
+				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe server " + snapshot.name() + " is stopped because the provider is initialized. You can disable this feature in the config.");
 			}
 		}
 	}
 	
-	public void initialize(PrivateServerService service) {
+	public void register(PrivateServerService service) {
 		if(PRIVATE_SERVERS.contains(service)) return;
 		PRIVATE_SERVERS.add(service);
 	}

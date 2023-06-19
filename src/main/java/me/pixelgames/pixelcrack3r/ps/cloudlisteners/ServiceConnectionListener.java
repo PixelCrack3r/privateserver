@@ -20,7 +20,7 @@ public class ServiceConnectionListener {
 			if(e.newLifeCycle() == ServiceLifeCycle.RUNNING) {
 				if(server == null) {
 					server = PrivateServer.getInstance().getPrivateServerHandler().buildExistingService(e.serviceInfo());
-					if(server != null) PrivateServer.getInstance().getPrivateServerHandler().initialize(server);
+					if(server != null) PrivateServer.getInstance().getPrivateServerHandler().register(server);
 				}
 				
 				if(server == null) {
