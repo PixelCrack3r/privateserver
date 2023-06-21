@@ -115,7 +115,7 @@ public class PrivateServer implements PlatformEntrypoint {
 		Bukkit.getConsoleSender().sendMessage(this.getPrefix() + "loading instances...");
 		this.setupUi();
 		this.templateHandler = new TemplateHandler();
-		this.serverHandler = new PrivateServerHandler(this.cloudServiceProvider, this.serviceTaskProvider, this.cloudServiceFactory);
+		this.serverHandler = new PrivateServerHandler(this.cloudServiceProvider, this.serviceTaskProvider);
 		this.pluginHandler = new PluginHandler();
 		this.ticketSystem = new TicketSystem();
 		

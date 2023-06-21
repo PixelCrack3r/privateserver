@@ -34,7 +34,6 @@ public class ServiceConnectionListener {
 				Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "CloudService " + e.serviceInfo().name() + " is disconnected!");
 				if(server == null) return;
 				server.setConnected(false);
-				server.stop();
 				server.forceDelete();
 				PrivateServer.getInstance().getUi().updateServerList();
 			}

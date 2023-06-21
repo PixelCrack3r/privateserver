@@ -52,7 +52,7 @@ public class OnPlayerInventoryClickListener implements Listener {
 					
 				}
 			} else if(clickedItem.getItemMeta().getDisplayName().equalsIgnoreCase("§cStop")) {
-				if(server == null) {
+				if(server == null || server.isConnected()) {
 					player.closeInventory();
 					ActionBar.sendActionBar(player, "§cNo private server could be found.");
 					player.sendMessage(PrivateServer.getInstance().getPrefix() + "§cNo private server could be found.");

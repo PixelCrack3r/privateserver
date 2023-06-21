@@ -9,7 +9,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.cloudnetservice.common.document.gson.JsonDocument;
-import eu.cloudnetservice.driver.provider.CloudServiceFactory;
 import eu.cloudnetservice.driver.provider.CloudServiceProvider;
 import eu.cloudnetservice.driver.provider.ServiceTaskProvider;
 import eu.cloudnetservice.driver.service.*;
@@ -30,12 +29,10 @@ public class PrivateServerHandler {
 
 	private final CloudServiceProvider cloudServiceProvider;
 	private final ServiceTaskProvider serviceTaskProvider;
-	private final CloudServiceFactory cloudServiceFactory;
 
-	public PrivateServerHandler(CloudServiceProvider cloudServiceProvider, ServiceTaskProvider serviceTaskProvider, CloudServiceFactory cloudServiceFactory) {
+	public PrivateServerHandler(CloudServiceProvider cloudServiceProvider, ServiceTaskProvider serviceTaskProvider) {
 		this.cloudServiceProvider = cloudServiceProvider;
 		this.serviceTaskProvider = serviceTaskProvider;
-		this.cloudServiceFactory = cloudServiceFactory;
 	}
 
 	public void initialize() {
@@ -105,7 +102,8 @@ public class PrivateServerHandler {
 	public boolean isServerRunning(OfflinePlayer player) {
 		return getPrivateServer(player.getName()) != null;
 	}
-	
+
+	// TODO: create getPrivateServer(UUID), getPrivateServer(Player) and make getPrivateServer(String) deprecated
 	public PrivateServerService getPrivateServer(String name) {
 		for(PrivateServerService service : PRIVATE_SERVERS) {
 			if(service.getOwner().equalsIgnoreCase(name) || service.getName().equalsIgnoreCase(name) || service.getId().toString().equalsIgnoreCase(name)) {
@@ -173,7 +171,13 @@ public class PrivateServerHandler {
 			Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "  " + inclusion.destination() + ": " + inclusion.url());
 		});
 
-		return serviceConfiguration.createNewService().serviceInfo();
+		ServiceInfoSnapshot service = null;
+
+		try {
+			service = serviceConfiguration.createNewService().serviceInfo();
+		} catch (Exception ignored) {}
+
+		return service;
 	}
 	
 	public boolean start(Player player) {
@@ -203,11 +207,12 @@ public class PrivateServerHandler {
 			
 			while(result.next()) {
 				String owner = result.getString("owner");
-				String properties = result.getString("properties");
-				String template = result.getString("templates");
-				boolean isStatic = result.getBoolean("static");
 				
 				if(owner.equalsIgnoreCase(player.getUniqueId().toString())) {
+					String properties = result.getString("properties");
+					String template = result.getString("templates");
+					boolean isStatic = result.getBoolean("static");
+
 					LOADED_CONFIGS.put(player.getName(), new ServerConfiguration(template, isStatic, new JsonParser().parse(properties).getAsJsonObject()));
 					return LOADED_CONFIGS.get(player.getName());
 				}
@@ -233,7 +238,7 @@ public class PrivateServerHandler {
 	}
 	
 	public List<PrivateServerService> getPublicServices() {
-		return new ArrayList<PrivateServerService>(PrivateServerHandler.PRIVATE_SERVERS).stream()
+		return new ArrayList<>(PrivateServerHandler.PRIVATE_SERVERS).stream()
 				.filter(Objects::nonNull)
 				.filter(PrivateServerService::isConnected)
 				.filter(server -> !server.getServerConfiguration().getProperties().has("access") || server.getServerConfiguration().getProperties().get("access").getAsString().equalsIgnoreCase("public"))

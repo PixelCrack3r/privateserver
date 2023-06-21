@@ -8,6 +8,7 @@ import eu.cloudnetservice.common.document.gson.JsonDocument;
 import eu.cloudnetservice.driver.channel.ChannelMessage;
 import eu.cloudnetservice.driver.network.buffer.DataBuf;
 import eu.cloudnetservice.driver.service.ServiceInfoSnapshot;
+import eu.cloudnetservice.modules.bridge.BridgeServiceHelper;
 import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
 import me.pixelgames.pixelcrack3r.ps.handlers.PrivateServerHandler;
@@ -175,8 +176,7 @@ public class PrivateServerService {
 	}
 
 	public boolean isStarting() {
-		ServiceInfoSnapshot info = this.getServiceInfo();
-		return this.isConnected() && info != null;
+		return this.isConnected() && BridgeServiceHelper.startingService(this.getServiceInfo());
 	}
 	
 	public void sendMessage(JsonDocument data) {
@@ -214,6 +214,7 @@ public class PrivateServerService {
 	}
 
 	public void forceDelete() {
+		Bukkit.getScheduler().cancelTask(this.schedulerId.get());
 		PrivateServerHandler.PRIVATE_SERVERS.remove(this);
 	}
 	
