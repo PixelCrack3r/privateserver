@@ -4,12 +4,12 @@ import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import eu.cloudnetservice.common.document.gson.JsonDocument;
 import eu.cloudnetservice.driver.channel.ChannelMessage;
+import eu.cloudnetservice.driver.document.Document;
 import eu.cloudnetservice.driver.network.buffer.DataBuf;
 import eu.cloudnetservice.driver.service.ServiceInfoSnapshot;
+import eu.cloudnetservice.modules.bridge.BridgeDocProperties;
 import eu.cloudnetservice.modules.bridge.BridgeServiceHelper;
-import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
 import me.pixelgames.pixelcrack3r.ps.handlers.PrivateServerHandler;
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
@@ -142,7 +142,7 @@ public class PrivateServerService {
 					this.sent = true;
 				}
 
-				if(this.getServiceInfo().propertyPresent(BridgeServiceProperties.ONLINE_COUNT) && this.getServiceInfo().readProperty(BridgeServiceProperties.ONLINE_COUNT) <= 0) {
+				if(this.getServiceInfo().propertyPresent(BridgeDocProperties.ONLINE_COUNT) && this.getServiceInfo().readProperty(BridgeDocProperties.ONLINE_COUNT) <= 0) {
 					int current = this.timeout.addAndGet(1);
 					if(current > PrivateServer.getInstance().getPSConfig().getInt("server.stopAfter"))
 						this.stop();
@@ -172,18 +172,18 @@ public class PrivateServerService {
 	
 	public boolean isRunning() {
 		ServiceInfoSnapshot info = this.getServiceInfo();
-		return this.isConnected() && info != null && info.propertyPresent(BridgeServiceProperties.IS_ONLINE) && info.readProperty(BridgeServiceProperties.IS_ONLINE);
+		return this.isConnected() && info != null && info.propertyPresent(BridgeDocProperties.IS_ONLINE) && info.readProperty(BridgeDocProperties.IS_ONLINE);
 	}
 
 	public boolean isStarting() {
 		return this.isConnected() && BridgeServiceHelper.startingService(this.getServiceInfo());
 	}
 	
-	public void sendMessage(JsonDocument data) {
+	public void sendMessage(Document data) {
 		ChannelMessage.builder().channel("private_server").message("send_data").buffer(DataBuf.empty().writeString(data.toString())).targetService(this.getServiceInfo().name()).build().send();
 	}
 	
-	public Collection<ChannelMessage> query(JsonDocument data) {
+	public Collection<ChannelMessage> query(Document data) {
 		return ChannelMessage.builder().channel("private_server").message("send_query").buffer(DataBuf.empty().writeString(data.toString())).targetService(this.getServiceInfo().name()).build().sendQuery();
 	}
 	
@@ -223,7 +223,7 @@ public class PrivateServerService {
 	}
 	
 	public JsonObject getProperties() {
-		return new JsonParser().parse(this.getServiceInfo().readPropertyOrDefault(BridgeServiceProperties.EXTRA, "{}")).getAsJsonObject();
+		return new JsonParser().parse(this.getServiceInfo().readPropertyOrDefault(BridgeDocProperties.EXTRA, "{}")).getAsJsonObject();
 	}
 	
 	public JsonObject buildStartupProperties() {

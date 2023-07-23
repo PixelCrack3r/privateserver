@@ -11,9 +11,9 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import dev.derklaro.aerogel.Inject;
 import dev.derklaro.aerogel.Singleton;
-import eu.cloudnetservice.common.document.gson.JsonDocument;
 import eu.cloudnetservice.driver.channel.ChannelMessage;
 import eu.cloudnetservice.driver.channel.ChannelMessageTarget;
+import eu.cloudnetservice.driver.document.Document;
 import eu.cloudnetservice.driver.event.EventManager;
 import eu.cloudnetservice.driver.network.buffer.DataBuf;
 import eu.cloudnetservice.driver.provider.CloudServiceFactory;
@@ -229,7 +229,7 @@ public class PrivateServer implements PlatformEntrypoint {
 	
 	public JsonObject requestServiceProperties(ServiceInfoSnapshot target) {
 		JsonObject properties = null;
-		List<ChannelMessage> responses = new ArrayList<>(this.sendQuery(JsonDocument.newDocument().append("request", "startup_properties").append("target", target.name())));
+		List<ChannelMessage> responses = new ArrayList<>(this.sendQuery(Document.newJsonDocument().append("request", "startup_properties").append("target", target.name())));
 		ChannelMessage msg = responses.size() > 0 ? responses.get(0) : null;
 		if(msg == null) return null;
 		try {
@@ -240,7 +240,7 @@ public class PrivateServer implements PlatformEntrypoint {
 		return properties;
 	}
 	
-	private Collection<ChannelMessage> sendQuery(JsonDocument data) {
+	private Collection<ChannelMessage> sendQuery(Document data) {
 		return ChannelMessage.builder().targetAll(ChannelMessageTarget.Type.SERVICE).channel("private_server").message("send_query").buffer(DataBuf.empty().writeString(data.toString())).build().sendQuery();
 	}
 	

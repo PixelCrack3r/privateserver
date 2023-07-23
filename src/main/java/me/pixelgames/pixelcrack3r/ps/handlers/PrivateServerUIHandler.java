@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
+import eu.cloudnetservice.modules.bridge.BridgeDocProperties;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -71,7 +71,7 @@ public class PrivateServerUIHandler {
 		
 		List<String> lore = new ArrayList<>();
 		if(server != null && server.isRunning()) {
-			lore = Arrays.asList("§7- §6Mode§7: " + (!server.getServerConfiguration().getTemplate().equalsIgnoreCase("none") ? ChatColor.stripColor(PrivateServer.getInstance().getTemplateHandler().getTemplateName(server.getServerConfiguration().getTemplate())) : "Survival"), "§7- §6Players§7: " + server.getServiceInfo().readProperty(BridgeServiceProperties.ONLINE_COUNT));
+			lore = Arrays.asList("§7- §6Mode§7: " + (!server.getServerConfiguration().getTemplate().equalsIgnoreCase("none") ? ChatColor.stripColor(PrivateServer.getInstance().getTemplateHandler().getTemplateName(server.getServerConfiguration().getTemplate())) : "Survival"), "§7- §6Players§7: " + server.getServiceInfo().readProperty(BridgeDocProperties.ONLINE_COUNT));
 		}
 		
 		Inventory inv = Bukkit.createInventory(null, 9*6, PrivateServer.getInstance().getPSConfig().getString("inventory.cp.name"));
@@ -227,7 +227,7 @@ public class PrivateServerUIHandler {
 
 				List<String> lore = new ArrayList<>();
 				if (server.isRunning()) {
-					lore = Arrays.asList("§7- §6Mode§7: " + (!server.getServerConfiguration().getTemplate().equalsIgnoreCase("none") ? ChatColor.stripColor(PrivateServer.getInstance().getTemplateHandler().getTemplateName(server.getServerConfiguration().getTemplate())) : "Survival"), "§7- §6Players§7: " + server.getServiceInfo().readProperty(BridgeServiceProperties.ONLINE_COUNT));
+					lore = Arrays.asList("§7- §6Mode§7: " + (!server.getServerConfiguration().getTemplate().equalsIgnoreCase("none") ? ChatColor.stripColor(PrivateServer.getInstance().getTemplateHandler().getTemplateName(server.getServerConfiguration().getTemplate())) : "Survival"), "§7- §6Players§7: " + server.getServiceInfo().readProperty(BridgeDocProperties.ONLINE_COUNT));
 				}
 
 				inventory.setItem(j, ItemGenerator.modify().setItemStack(new ItemStack(Material.SKULL_ITEM, 1, (byte) 3)).setOwner(server.getOwner()).setDisplayName(!server.isConnected() ? "§cOffline" : "§e" + server.getName()).setLore(lore).build());

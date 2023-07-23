@@ -8,11 +8,12 @@ import java.util.stream.Collectors;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import eu.cloudnetservice.common.document.gson.JsonDocument;
+import eu.cloudnetservice.driver.document.Document;
+import eu.cloudnetservice.driver.document.DocumentFactory;
 import eu.cloudnetservice.driver.provider.CloudServiceProvider;
 import eu.cloudnetservice.driver.provider.ServiceTaskProvider;
 import eu.cloudnetservice.driver.service.*;
-import eu.cloudnetservice.modules.bridge.BridgeServiceProperties;
+import eu.cloudnetservice.modules.bridge.BridgeDocProperties;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -39,14 +40,14 @@ public class PrivateServerHandler {
 		for(ServiceInfoSnapshot snapshot : getRunningPSs()) {
 			if(PrivateServer.getInstance().getPSConfig().getBoolean("server.registerStartedServers") ) {
 
-				if(snapshot.propertyAbsent(BridgeServiceProperties.EXTRA)) {
+				if(snapshot.propertyAbsent(BridgeDocProperties.EXTRA)) {
 					snapshot.provider().stopAsync();
 					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe service " + snapshot.name() + " is stopped because it could not be initialized! You can disable this feature in the config.");
 					continue;
 				}
 
 				try {
-					JsonDocument properties = JsonDocument.fromJsonString(snapshot.readProperty(BridgeServiceProperties.EXTRA));
+					Document properties = DocumentFactory.json().parse(snapshot.readProperty(BridgeDocProperties.EXTRA));
 
 					UUID ownerId = properties.contains("privateserver.owner") ? UUID.fromString(properties.getString("privateserver.owner")) : null;
 					OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerId);
@@ -57,7 +58,7 @@ public class PrivateServerHandler {
 					service.setConnected(true);
 					service.start();
 					PRIVATE_SERVERS.add(service);
-					service.sendMessage(JsonDocument.newDocument().append("action", "broadcast").append("message", "§7[§bPrivateServer§7] §9INFO: §7This private server has been registered on a new provider service!"));
+					service.sendMessage(Document.newJsonDocument().append("action", "broadcast").append("message", "§7[§bPrivateServer§7] §9INFO: §7This private server has been registered on a new provider service!"));
 					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe service " + snapshot.name() + " has been initialized.");
 				} catch(Exception e) {
 					Bukkit.getConsoleSender().sendMessage(PrivateServer.getInstance().getPrefix() + "§cThe service " + snapshot.name() + " is stopped because it could not be initialized because the extra property could not be parsed!");
@@ -95,8 +96,8 @@ public class PrivateServerHandler {
 	}
 	
 	public JsonObject extractServiceProperties(ServiceInfoSnapshot snapshot) {
-		if(snapshot.propertyAbsent(BridgeServiceProperties.EXTRA)) return null;
-		return new JsonParser().parse(snapshot.readProperty(BridgeServiceProperties.EXTRA)).getAsJsonObject();
+		if(snapshot.propertyAbsent(BridgeDocProperties.EXTRA)) return null;
+		return new JsonParser().parse(snapshot.readProperty(BridgeDocProperties.EXTRA)).getAsJsonObject();
 	}
 	
 	public boolean isServerRunning(OfflinePlayer player) {

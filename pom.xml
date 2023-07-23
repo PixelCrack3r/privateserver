@@ -30,7 +30,7 @@
                         <annotationProcessorPath>
                             <groupId>eu.cloudnetservice.cloudnet</groupId>
                             <artifactId>platform-inject-processor</artifactId>
-                            <version>4.0.0-RC8</version>
+                            <version>4.0.0-RC9</version>
                         </annotationProcessorPath>
                     </annotationProcessorPaths>
                 </configuration>
@@ -42,19 +42,19 @@
         <dependency>
             <groupId>eu.cloudnetservice.cloudnet</groupId>
             <artifactId>driver</artifactId>
-            <version>4.0.0-RC8-SNAPSHOT</version> <!-- only needed when bom is not used -->
+            <version>4.0.0-RC9-SNAPSHOT</version> <!-- only needed when bom is not used -->
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>eu.cloudnetservice.cloudnet</groupId>
             <artifactId>bridge</artifactId>
-            <version>4.0.0-RC8-SNAPSHOT</version> <!-- only needed when bom is not used -->
+            <version>4.0.0-RC9-SNAPSHOT</version> <!-- only needed when bom is not used -->
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>eu.cloudnetservice.cloudnet</groupId>
             <artifactId>platform-inject-api</artifactId>
-            <version>4.0.0-RC8</version>
+            <version>4.0.0-RC9</version>
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
