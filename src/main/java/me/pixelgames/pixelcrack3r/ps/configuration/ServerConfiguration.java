@@ -3,7 +3,7 @@ package me.pixelgames.pixelcrack3r.ps.configuration;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import de.dytanic.cloudnet.common.document.gson.JsonDocument;
+import eu.cloudnetservice.driver.document.Document;
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
 
 public class ServerConfiguration {
@@ -22,8 +22,8 @@ public class ServerConfiguration {
 		this(template, isStatic, JsonParser.parseString("{}").getAsJsonObject());
 	}
 	
-	public ServerConfiguration(String template, boolean isStatic, JsonDocument doc) {
-		this(template, isStatic, JsonParser.parseString(doc.toJson()).getAsJsonObject());
+	public ServerConfiguration(String template, boolean isStatic, Document doc) {
+		this(template, isStatic, JsonParser.parseString(doc.toString()).getAsJsonObject());
 	}
 	
 	public ServerConfiguration(String template, boolean isStatic, JsonObject properties) {

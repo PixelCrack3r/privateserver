@@ -2,13 +2,13 @@ package me.pixelgames.pixelcrack3r.ps.handlers;
 
 import java.util.Set;
 
+import eu.cloudnetservice.driver.service.ServiceTemplate;
 import me.pixelgames.pixelcrack3r.ps.configuration.ServerConfiguration;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 
 import com.google.gson.JsonObject;
 
-import de.dytanic.cloudnet.driver.service.ServiceTemplate;
 import me.pixelgames.pixelcrack3r.ps.main.PrivateServer;
 
 public class TemplateHandler {
@@ -16,13 +16,17 @@ public class TemplateHandler {
 	public ServiceTemplate getTemplate(String template) {
 		String sectionKey = this.getTemplateKey(template);
 		
-		boolean isStatic = PrivateServer.getInstance().getPSConfig().getBoolean("privateservers.templates." + sectionKey + ".static");
+		// boolean isStatic = PrivateServer.getInstance().getPSConfig().getBoolean("privateservers.templates." + sectionKey + ".static");
 		
 		String prefix = PrivateServer.getInstance().getPSConfig().getString("privateservers.templates." + sectionKey + ".prefix");
 		String templateName = PrivateServer.getInstance().getPSConfig().getString("privateservers.templates." + sectionKey + ".template_name");
 		String storage = PrivateServer.getInstance().getPSConfig().getString("privateservers.templates." + sectionKey + ".storage");
 		
-		return new ServiceTemplate(prefix, templateName, storage, isStatic);
+		return new ServiceTemplate.Builder()
+				.prefix(prefix)
+				.name(templateName)
+				.storage(storage)
+				.build();
 	}
 	
 	public ServerConfiguration getServerConfiguration(String template) {
